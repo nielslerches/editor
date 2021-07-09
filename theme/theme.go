@@ -1,17 +1,46 @@
 package theme
 
-import "image/color"
+import "github.com/nielslerches/editor/fonts"
 
 type Theme struct {
-	Background color.RGBA
-	Foreground color.RGBA
+	Background *Color
+	Foreground *Color
 	LineHeight uint8
+	FontSize   int
+	Font       *fonts.Font
+	Text       *Color
 }
 
-var (
-	DEFAULT = &Theme{
-		Background: color.RGBA{R: 127, G: 127, B: 127, A: 255},
-		Foreground: color.RGBA{R: 63, G: 63, B: 63, A: 255},
-		LineHeight: 32,
+func NewTheme(background, foreground *Color, lineHeight uint8, fontSize int, font *fonts.Font, text *Color) (t *Theme) {
+	t = &Theme{
+		Background: background,
+		Foreground: foreground,
+		LineHeight: lineHeight,
+		Font:       font,
+		Text:       text,
 	}
-)
+
+	return t
+}
+
+type Color struct {
+	R uint8
+	G uint8
+	B uint8
+	A uint8
+}
+
+func NewColor(r, g, b, a uint8) (c *Color) {
+	c = &Color{
+		R: r,
+		G: g,
+		B: b,
+		A: a,
+	}
+
+	return c
+}
+
+func (c *Color) RGBA() (uint8, uint8, uint8, uint8) {
+	return c.R, c.G, c.B, c.A
+}

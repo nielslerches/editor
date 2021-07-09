@@ -3,6 +3,7 @@ package application
 import (
 	"fmt"
 
+	"github.com/nielslerches/editor/fonts"
 	"github.com/nielslerches/editor/renderer"
 	"github.com/nielslerches/editor/screen"
 	"github.com/nielslerches/editor/theme"
@@ -10,9 +11,10 @@ import (
 )
 
 type Application struct {
-	Screen   *screen.Screen
-	Renderer *renderer.Renderer
-	Theme    *theme.Theme
+	Screen      *screen.Screen
+	Renderer    *renderer.Renderer
+	Theme       *theme.Theme
+	FontManager *fonts.FontManager
 }
 
 func NewApplication() (a *Application) {
@@ -20,14 +22,33 @@ func NewApplication() (a *Application) {
 		panic(err)
 	}
 
-	t := theme.DEFAULT
+	var f *fonts.Font
+
+	fm := fonts.NewFontManager()
+	fs := fm.GetFonts().FilterByStyle("monospace")
+
+	if len(fs.Result) > 0 {
+		f = fs.Result[0]
+	}
+
+	fmt.Printf("Font: %v\n", *f)
+
+	t := &theme.Theme{
+		Background: theme.NewColor(63, 63, 63, 255),
+		Foreground: theme.NewColor(127, 127, 127, 255),
+		LineHeight: 20,
+		FontSize:   16,
+		Font:       f,
+		Text:       theme.NewColor(7, 7, 7, 255),
+	}
 
 	r := renderer.NewRenderer(t)
 
 	a = &Application{
-		Screen:   screen.NewScreen(),
-		Renderer: r,
-		Theme:    t,
+		Screen:      screen.NewScreen(),
+		Renderer:    r,
+		Theme:       t,
+		FontManager: fm,
 	}
 
 	a.Render()
@@ -53,15 +74,35 @@ func (a *Application) Run() {
 				}
 
 				keyCode := t.Keysym.Sym
+				fmt.Printf("%v", keyCode)
 
 				switch keyCode {
 				case sdl.K_ESCAPE:
 					running = false
+				case sdl.K_BACKSPACE:
+					if a.Screen.SelectedEditor != nil {
+						l := a.Screen.SelectedEditor.GetLineByIndex(0)
+						if l != nil {
+							if len(l.Content) > 0 {
+								l.Content = l.Content[:len(l.Content)-1]
+							} else {
+								l.Content = ""
+							}
+						}
+					}
 				}
 			case *sdl.WindowEvent:
 				switch int(t.Event) {
 				case sdl.WINDOWEVENT_RESIZED:
 					a.OnWindowResize()
+				}
+			case *sdl.TextInputEvent:
+				fmt.Println("TextInputEvent")
+				if a.Screen.SelectedEditor != nil {
+					l := a.Screen.SelectedEditor.GetLineByIndex(0)
+					if l != nil {
+						l.Content = l.Content + t.GetText()
+					}
 				}
 			}
 

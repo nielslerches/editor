@@ -7,20 +7,26 @@ import (
 	"github.com/nielslerches/editor/line"
 	"github.com/nielslerches/editor/screen"
 	"github.com/nielslerches/editor/theme"
-	"github.com/veandco/go-sdl2/gfx"
 	"github.com/veandco/go-sdl2/sdl"
+	"github.com/veandco/go-sdl2/ttf"
 )
 
 type Renderer struct {
 	Window   *sdl.Window
 	Renderer *sdl.Renderer
 	Theme    *theme.Theme
+	Font     *ttf.Font
+	Surface  *sdl.Surface
 }
 
 func NewRenderer(t *theme.Theme) (r *Renderer) {
+	var err error
 	var window *sdl.Window
 	var renderer *sdl.Renderer
-	var err error
+	var font *ttf.Font
+	var surface *sdl.Surface
+	var displayIndex int
+	var ddpi, hdpi, vdpi float32
 
 	if err = sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
@@ -35,6 +41,20 @@ func NewRenderer(t *theme.Theme) (r *Renderer) {
 		panic(err)
 	}
 
+	if displayIndex, err = window.GetDisplayIndex(); err != nil {
+		panic(err)
+	}
+
+	if ddpi, hdpi, vdpi, err = sdl.GetDisplayDPI(displayIndex); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("ddpi, hdpi, vdpi: %v, %v, %v\n", ddpi, hdpi, vdpi)
+
+	if surface, err = window.GetSurface(); err != nil {
+		panic(err)
+	}
+
 	if renderer, err = sdl.CreateRenderer(
 		window,
 		-1,
@@ -43,10 +63,27 @@ func NewRenderer(t *theme.Theme) (r *Renderer) {
 		panic(err)
 	}
 
+	if err = ttf.Init(); err != nil {
+		panic(err)
+	}
+
+	if font, err = ttf.OpenFont(
+		t.Font.File,
+		int(t.FontSize),
+	); err != nil {
+		panic(err)
+	}
+
+	font.SetKerning(true)
+
+	fmt.Printf("Height: %v \n", font.Height())
+
 	r = &Renderer{
 		Window:   window,
 		Renderer: renderer,
 		Theme:    t,
+		Font:     font,
+		Surface:  surface,
 	}
 
 	return r
@@ -54,6 +91,9 @@ func NewRenderer(t *theme.Theme) (r *Renderer) {
 
 func (r *Renderer) Destroy() {
 	var err error
+
+	r.Font.Close()
+	ttf.Quit()
 
 	if err = r.Renderer.Destroy(); err != nil {
 		panic(err)
@@ -69,13 +109,13 @@ func (r *Renderer) Resize(w, h int32) {
 }
 
 func (r *Renderer) Render(s *screen.Screen) {
-	r.Renderer.SetDrawColor(r.Theme.Background.R, r.Theme.Background.G, r.Theme.Background.B, r.Theme.Background.A)
-	if err := r.Renderer.Clear(); err != nil {
+	var err error
+
+	if err = r.Renderer.SetDrawColor(r.Theme.Background.R, r.Theme.Background.G, r.Theme.Background.B, r.Theme.Background.A); err != nil {
 		panic(err)
 	}
 
 	r.RenderScreen(s)
-
 	r.Renderer.Present()
 
 	fmt.Printf("Render\n")
@@ -108,6 +148,10 @@ func (r *Renderer) RenderLine(number uint, l *line.Line) {
 		return
 	}
 
+	var err error
+	var surface *sdl.Surface
+	var texture *sdl.Texture
+
 	fmt.Printf("RenderLine: %d, %v", number, l)
 
 	winWidth, _ := r.Window.GetSize()
@@ -121,9 +165,46 @@ func (r *Renderer) RenderLine(number uint, l *line.Line) {
 		H: int32(r.Theme.LineHeight),
 	}
 
-	if err := r.Renderer.FillRect(rect); err != nil {
+	if err = r.Renderer.FillRect(rect); err != nil {
 		panic(err)
 	}
 
-	gfx.StringRGBA(r.Renderer, int32(r.Theme.LineHeight), int32((r.Theme.LineHeight*uint8(number))+(r.Theme.LineHeight/2)), "GFX Demo", r.Theme.Background.R, r.Theme.Background.G, r.Theme.Background.B, r.Theme.Background.A)
+	if len(l.Content) > 0 {
+		var width, height int32
+		color := sdl.Color{R: r.Theme.Text.R, G: r.Theme.Text.G, B: r.Theme.Text.B, A: r.Theme.Text.A}
+		fg := sdl.Color{R: r.Theme.Foreground.R, G: r.Theme.Foreground.G, B: r.Theme.Foreground.B, A: r.Theme.Foreground.A}
+
+		if surface, err = r.Font.RenderUTF8Shaded(
+			l.Content, color, fg,
+		); err != nil {
+			panic(err)
+		}
+
+		defer surface.Free()
+
+		if texture, err = r.Renderer.CreateTextureFromSurface(surface); err != nil {
+			panic(err)
+		}
+
+		defer texture.Destroy()
+
+		if _, _, width, height, err = texture.Query(); err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("Size: %v, %v\n", width, height)
+
+		if err = r.Renderer.Copy(
+			texture,
+			nil,
+			&sdl.Rect{
+				X: rect.X,
+				Y: rect.Y,
+				W: width,
+				H: height,
+			},
+		); err != nil {
+			panic(err)
+		}
+	}
 }
