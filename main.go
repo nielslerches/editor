@@ -7,5 +7,4 @@ import (
 func main() {
 	a := application.NewApplication()
 	a.Run()
-	a.Destroy()
 }

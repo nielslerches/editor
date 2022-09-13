@@ -55,11 +55,7 @@ func NewRenderer(t *theme.Theme) (r *Renderer) {
 		panic(err)
 	}
 
-	if renderer, err = sdl.CreateRenderer(
-		window,
-		-1,
-		sdl.RENDERER_ACCELERATED,
-	); err != nil {
+	if renderer, err = window.GetRenderer(); err != nil {
 		panic(err)
 	}
 
@@ -94,10 +90,6 @@ func (r *Renderer) Destroy() {
 
 	r.Font.Close()
 	ttf.Quit()
-
-	if err = r.Renderer.Destroy(); err != nil {
-		panic(err)
-	}
 
 	if err = r.Window.Destroy(); err != nil {
 		panic(err)

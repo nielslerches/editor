@@ -62,53 +62,52 @@ func (a *Application) Destroy() {
 }
 
 func (a *Application) Run() {
-	running := true
-	for running {
-		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch t := event.(type) {
-			case *sdl.QuitEvent:
-				running = false
-			case *sdl.KeyboardEvent:
-				if t.State != sdl.PRESSED {
-					continue
-				}
+	for event := sdl.WaitEvent(); event != nil; event = sdl.WaitEvent() {
+		switch t := event.(type) {
+		case *sdl.QuitEvent:
+			goto quit
+		case *sdl.KeyboardEvent:
+			if t.State != sdl.PRESSED {
+				continue
+			}
 
-				keyCode := t.Keysym.Sym
-				fmt.Printf("%v", keyCode)
+			keyCode := t.Keysym.Sym
+			fmt.Printf("%v", keyCode)
 
-				switch keyCode {
-				case sdl.K_ESCAPE:
-					running = false
-				case sdl.K_BACKSPACE:
-					if a.Screen.SelectedEditor != nil {
-						l := a.Screen.SelectedEditor.GetLineByIndex(0)
-						if l != nil {
-							if len(l.Content) > 0 {
-								l.Content = l.Content[:len(l.Content)-1]
-							} else {
-								l.Content = ""
-							}
-						}
-					}
-				}
-			case *sdl.WindowEvent:
-				switch int(t.Event) {
-				case sdl.WINDOWEVENT_RESIZED:
-					a.OnWindowResize()
-				}
-			case *sdl.TextInputEvent:
-				fmt.Println("TextInputEvent")
+			switch keyCode {
+			case sdl.K_ESCAPE:
+				goto quit
+			case sdl.K_BACKSPACE:
 				if a.Screen.SelectedEditor != nil {
 					l := a.Screen.SelectedEditor.GetLineByIndex(0)
 					if l != nil {
-						l.Content = l.Content + t.GetText()
+						if len(l.Content) > 0 {
+							l.Content = l.Content[:len(l.Content)-1]
+						} else {
+							l.Content = ""
+						}
 					}
 				}
 			}
-
-			a.Render()
+		case *sdl.WindowEvent:
+			switch int(t.Event) {
+			case sdl.WINDOWEVENT_RESIZED:
+				a.OnWindowResize()
+			}
+		case *sdl.TextInputEvent:
+			fmt.Println("TextInputEvent")
+			if a.Screen.SelectedEditor != nil {
+				l := a.Screen.SelectedEditor.GetLineByIndex(0)
+				if l != nil {
+					l.Content = l.Content + t.GetText()
+				}
+			}
 		}
+		a.Render()
 	}
+
+quit:
+	a.Destroy()
 }
 
 func (a *Application) Render() {
